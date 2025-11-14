@@ -70,6 +70,37 @@ async def on_guild_join(guild: discord.Guild):
     """runs when joins a new server"""
     await ensure_role_exists(guild)
 
+@bot.event
+async def on_raw_reaction_add(payload):
+    if payload.message_id != reaction_message_id or payload.user_id == bot.user.id:
+        return
+
+    guild = bot.get_guild(payload.guild_id)
+    role = discord.utils.get(guild.roles, name=ROLE_NAME)
+    if role is None:
+        print("role surfer not found")
+        return
+
+    if str(payload.emoji) == "🌊":
+        member = guild.get_member(payload.user_id)
+        if member:
+            await member.add_roles(role)
+
+@bot.event
+async def on_raw_reaction_remove(payload):
+    if payload.message_id != reaction_message_id:
+        return
+
+    guild = bot.get_guild(payload.guild_id)
+    role = discord.utils.get(guild.roles, name=ROLE_NAME)
+    if role is None:
+        return
+
+    if str(payload.emoji) == "🌊":
+        member = guild.get_member(payload.user_id)
+        if member:
+            await member.remove_roles(role)
+
 
 @bot.tree.command(name="surferrole", description="send the reaction-role message")
 async def surferrole(interaction: discord.Interaction):
@@ -223,37 +254,6 @@ async def deleteallphonenumbers(interaction: discord.Interaction):
     user_phones.clear()
     save_data()
     await interaction.channel.send("deleted all phone numbers")
-
-@bot.event
-async def on_raw_reaction_add(payload):
-    if payload.message_id != reaction_message_id or payload.user_id == bot.user.id:
-        return
-
-    guild = bot.get_guild(payload.guild_id)
-    role = discord.utils.get(guild.roles, name=ROLE_NAME)
-    if role is None:
-        print("role surfer not found")
-        return
-
-    if str(payload.emoji) == "🌊":
-        member = guild.get_member(payload.user_id)
-        if member:
-            await member.add_roles(role)
-
-@bot.event
-async def on_raw_reaction_remove(payload):
-    if payload.message_id != reaction_message_id:
-        return
-
-    guild = bot.get_guild(payload.guild_id)
-    role = discord.utils.get(guild.roles, name=ROLE_NAME)
-    if role is None:
-        return
-
-    if str(payload.emoji) == "🌊":
-        member = guild.get_member(payload.user_id)
-        if member:
-            await member.remove_roles(role)
 
 
 bot.run(TOKEN)
