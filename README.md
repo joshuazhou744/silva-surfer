@@ -10,3 +10,4 @@ Permissions:
 - Send Messages
 - Embed Links
 - Attach Files
+- Manage Channels

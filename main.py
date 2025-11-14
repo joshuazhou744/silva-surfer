@@ -33,6 +33,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 reaction_message_id = None
 ROLE_NAME = "surfer"
 DATA_FILE = "phones.json"
+CHANNEL_NAME = "silver-surfer"
 user_phones = {}
 
 if os.path.exists(DATA_FILE):
@@ -55,6 +56,15 @@ async def ensure_role_exists(guild: discord.Guild, role_name: str = ROLE_NAME):
     role = await guild.create_role(name=role_name, color=discord.Color.blue(), mentionable=True)
     return role
 
+async def ensure_channel_exists(guild: discord.Guild, channel_name: str = CHANNEL_NAME):
+    channel = discord.utils.get(guild.text_channels, name=channel_name)
+    if channel:
+        return channel
+    
+    print(f"create channel {channel_name}")
+    channel = await guild.create_text_channel(name=channel_name)
+    return channel
+
 @bot.event
 async def on_ready():
     """runs when bot start up"""
@@ -62,6 +72,7 @@ async def on_ready():
 
     for guild in bot.guilds:
         await ensure_role_exists(guild)
+        await ensure_channel_exists(guild)
 
     await bot.tree.sync()
 
@@ -104,6 +115,10 @@ async def on_raw_reaction_remove(payload):
 
 @bot.tree.command(name="surferrole", description="send the reaction-role message")
 async def surferrole(interaction: discord.Interaction):
+    if interaction.channel.name != CHANNEL_NAME:
+        await interaction.response.send_message(f"please use this command in the `#{CHANNEL_NAME}` channel", ephemeral=True)
+        return
+
     await interaction.response.send_message("posting surfer role message", ephemeral=True)
 
     await ensure_role_exists(interaction.guild)
@@ -215,7 +230,7 @@ async def message(interaction: discord.Interaction, user: discord.User, message:
         await interaction.channel.send("message failed")
         print(f"twilio error: {e}")
 
-@bot.tree.command(name="updatephonenumber", description="update a user's phone number")
+@bot.tree.command(name="updatephonenumber", description="update a phone number")
 @app_commands.describe(user="user whos phone number to update", phone_number="new phone number")
 async def updatephonenumber(interaction: discord.Interaction, user: discord.User, phone_number: str):
     await interaction.response.send_message(f"updating {user}'s number", ephemeral=True)
@@ -235,7 +250,7 @@ async def updatephonenumber(interaction: discord.Interaction, user: discord.User
     else:
         await interaction.channel.send(f"{user} does not have a registered phone number.")
 
-@bot.tree.command(name="deletephonenumber", description="delete a user's phone number")
+@bot.tree.command(name="deletephonenumber", description="delete a phone number")
 @app_commands.describe(user="user whose phone number to delete")
 async def deletephonenumber(interaction: discord.Interaction, user: discord.User):
     await interaction.response.send_message(f"deleting {user}'s number", ephemeral=True)
