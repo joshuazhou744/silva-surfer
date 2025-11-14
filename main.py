@@ -1,4 +1,5 @@
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 from twilio.rest import Client
@@ -27,7 +28,7 @@ intents.guilds = True
 intents.members = True
 
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 reaction_message_id = None
 ROLE_NAME = "surfer"
@@ -62,16 +63,19 @@ async def on_ready():
     for guild in bot.guilds:
         await ensure_role_exists(guild)
 
+    await bot.tree.sync()
+
 @bot.event
 async def on_guild_join(guild: discord.Guild):
     """runs when joins a new server"""
     await ensure_role_exists(guild)
 
 
-@bot.command()
-async def surferrole(ctx):
-    """send the reaction-role message"""
-    await ensure_role_exists(ctx.guild)
+@bot.tree.command(name="surferrole", description="send the reaction-role message")
+async def surferrole(interaction: discord.Interaction):
+    await interaction.response.send_message("posting surfer role message", ephemeral=True)
+
+    await ensure_role_exists(interaction.guild)
 
     embed = discord.Embed(
         title="🏄 silva surfers",
@@ -79,11 +83,146 @@ async def surferrole(ctx):
         color=discord.Color.blue()
     )
 
-    msg = await ctx.send(embed=embed)
+    msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("🌊")
 
     global reaction_message_id
     reaction_message_id = msg.id
+
+@bot.tree.command(name="surf", description="ping all surfers")
+async def surf(interaction: discord.Interaction):
+    await interaction.response.send_message("pinging all surfers", ephemeral=True)
+    
+    guild = interaction.guild
+
+    surfer_role = discord.utils.get(guild.roles, name=ROLE_NAME)
+
+    gif_files = [
+        "gifs/1.gif",
+        "gifs/2.gif",
+        "gifs/3.gif",
+        "gifs/4.gif",
+        "gifs/5.gif",
+        "gifs/6.gif",
+        "gifs/7.gif",
+        "gifs/8.gif",
+    ]
+
+    gif_path = random.choice(gif_files)
+
+    file = discord.File(gif_path, filename="surf.gif")
+    await interaction.channel.send(content=surfer_role.mention, file=file)
+
+async def get_phone_number(interaction: discord.Interaction, user: discord.User):
+    """get phone number of a user"""
+    uid = str(user.id)
+    phone_number = user_phones.get(uid)
+
+    if not phone_number:
+        await interaction.channel.send(f"{user}'s phone number is not registered, check dms")
+        await user.send(f"register {user}'s phone number here pls, type the 10 digits, no `+1`, no spaces, no dashes, no parentheses. type `cancel` to cancel")
+
+        def check(m):
+            return isinstance(m.channel, discord.DMChannel) and m.author.id == interaction.user.id
+
+        try:
+            reply = await bot.wait_for("message", check=check, timeout=60)
+        except asyncio.TimeoutError:
+            await user.send("phone number registration timed out")
+            return None
+
+        if reply.content.lower() == "cancel":
+            await user.send("registration cancelled")
+            return None
+
+        phone_number = "+1" + reply.content.strip()
+        if not phone_regex.match(phone_number):
+            await user.send("⚠️ invalid format, registration cancelled")
+            return None
+
+        user_phones[uid] = phone_number
+        save_data()
+        await user.send(f"saved {user}'s number as {phone_number}.")
+
+    return phone_number
+
+@bot.tree.command(name="call", description="call a surfer")
+@app_commands.describe(user="user to call", message="message to say in the call")
+async def call(interaction: discord.Interaction, user: discord.User, message: str):
+    await interaction.response.send_message(f"calling {user}")
+    phone_number = await get_phone_number(interaction, user)
+    if not phone_number:
+        return
+
+    try:
+        twilio_client.calls.create(
+            to=phone_number,
+            from_=TWILIO_NUMBER,
+            twiml=f"<Response><Pause length='2'/><Say>{message}</Say><Pause length='1'/></Response>"
+        )
+        await interaction.channel.send("called diddyblud")
+    except Exception as e:
+        await interaction.channel.send("call failed")
+        print(f"twilio error: {e}")
+
+@bot.tree.command(name="message", description="message a surfer")
+@app_commands.describe(user="user to message", message="content of the message")
+async def message(interaction: discord.Interaction, user: discord.User, message: str):
+    await interaction.response.send_message(f"messaging {user}")
+    phone_number = await get_phone_number(interaction, user)
+    if not phone_number:
+        return
+
+    try:
+        twilio_client.messages.create(
+            to=phone_number,
+            from_=TWILIO_NUMBER,
+            body=message
+        )
+        await interaction.channel.send(f"messaged {user}")
+    except Exception as e:
+        await interaction.channel.send("message failed")
+        print(f"twilio error: {e}")
+
+@bot.tree.command(name="updatephonenumber", description="update a user's phone number")
+@app_commands.describe(user="user whos phone number to update", phone_number="new phone number")
+async def updatephonenumber(interaction: discord.Interaction, user: discord.User, phone_number: str):
+    await interaction.response.send_message(f"updating {user}'s number", ephemeral=True)
+
+    if not phone_number.startswith("+1"):
+        phone_number = "+1" + phone_number.strip()
+    
+    if not phone_regex.match(phone_number):
+        await interaction.channel.send("invalid phone number format")
+        return
+
+    uid = str(user.id)
+    if uid in user_phones:
+        user_phones[uid] = phone_number
+        save_data()
+        await interaction.channel.send(f"updated {user}'s phone number to {phone_number}.")
+    else:
+        await interaction.channel.send(f"{user} does not have a registered phone number.")
+
+@bot.tree.command(name="deletephonenumber", description="delete a user's phone number")
+@app_commands.describe(user="user whose phone number to delete")
+async def deletephonenumber(interaction: discord.Interaction, user: discord.User):
+    await interaction.response.send_message(f"deleting {user}'s number", ephemeral=True)
+
+    uid = str(user.id)
+    if uid in user_phones:
+        del user_phones[uid]
+        save_data()
+        await interaction.channel.send(f"deleted {user}'s phone number")
+    else:
+        await interaction.channel.send(f"{user} does not have a registered phone number.")
+
+@bot.tree.command(name="deleteallphonenumbers", description="delete all phone numbers")
+async def deleteallphonenumbers(interaction: discord.Interaction):
+    await interaction.response.send_message("deleting all phone numbers", ephemeral=True)
+    user_phones.clear()
+    save_data()
+    await interaction.channel.send("deleted all phone numbers")
 
 @bot.event
 async def on_raw_reaction_add(payload):
@@ -115,145 +254,6 @@ async def on_raw_reaction_remove(payload):
         member = guild.get_member(payload.user_id)
         if member:
             await member.remove_roles(role)
-
-@bot.command()
-async def surf(ctx, role_name=ROLE_NAME):
-    """ping all surfers"""
-    guild = ctx.guild
-    surfer_role = discord.utils.get(guild.roles, name=role_name)
-
-    # gifs = [
-    #     "https://tenor.com/view/silver-gif-10327880808519491874",
-    #     "https://tenor.com/view/silver-surfer-gif-22251164",
-    #     "https://tenor.com/view/marlon-streamer-marlon-streamer-lacy-mogged-gif-1741399791848271101",
-    #     "https://tenor.com/view/silver-surfer-marvel-future-fight-marvel-future-revolution-netmarble-king-tron-gif-26435424",
-    #     "https://tenor.com/view/silver-surfer-surfing-fantastic-four-gif-16035455",
-    #     "https://tenor.com/view/silver-gif-10327880808519491874",
-    #     "https://tenor.com/view/silver-surfer-gif-22251164",
-    #     "https://tenor.com/view/marlon-streamer-marlon-streamer-lacy-mogged-gif-1741399791848271101",
-    # ]
-    # gif_url = random.choice(gifs)
-
-    gif_files = [
-        "gifs/1.gif",
-        "gifs/2.gif",
-        "gifs/3.gif",
-        "gifs/4.gif",
-        "gifs/5.gif",
-        "gifs/6.gif",
-        "gifs/7.gif",
-        "gifs/8.gif",
-    ]
-
-    gif_path = random.choice(gif_files)
-
-    file = discord.File(gif_path, filename="surf.gif")
-    await ctx.send(content=surfer_role.mention, file=file)
-
-async def get_phone_number(ctx, user: discord.User):
-    """get phone number of a user"""
-    uid = str(user.id)
-    phone_number = user_phones.get(uid)
-
-    if not phone_number:
-        await ctx.send(f"{user}'s phone number is not registered, check dms")
-        await user.send(f"register {user}'s phone number here pls, type the 10 digits, no `+1`, no spaces, no dashes, no parentheses. type `cancel` to cancel")
-
-        def check(m):
-            return isinstance(m.channel, discord.DMChannel)
-
-        try:
-            reply = await bot.wait_for("message", check=check, timeout=60)
-        except asyncio.TimeoutError:
-            await user.send("phone number registration timed out")
-            return None
-
-        if reply.content.lower() == "cancel":
-            await user.send("registration cancelled")
-            return None
-
-        phone_number = "+1" + reply.content.strip()
-        if not phone_regex.match(phone_number):
-            await user.send("⚠️ invalid format, registration cancelled")
-            return None
-
-        user_phones[uid] = phone_number
-        save_data()
-        await user.send(f"saved {user}'s number as {phone_number}.")
-
-    return phone_number
-
-@bot.command()
-async def call(ctx, user: discord.User, *, message: str, twilio_number = TWILIO_NUMBER):
-    """call a surfer, usage: !call @user <message>"""
-    phone_number = await get_phone_number(ctx, user)
-    if not phone_number:
-        return
-
-    try:
-        twilio_client.calls.create(
-            to=phone_number,
-            from_=twilio_number,
-            twiml=f"<Response><Pause length='2'/><Say>{message}</Say></Response>"
-        )
-        await ctx.send(f"calling diddyblud")
-    except Exception as e:
-        await ctx.send("failed calling")
-        print(f"twilio error: {e}")
-
-@bot.command()
-async def message(ctx, user: discord.User, *, message: str, twilio_number = TWILIO_NUMBER):
-    """message a surfer, usage: !message @user <message>"""
-    command = bot.get_command("call")
-    temp = f"!{command.name} {command.signature}"
-    print(temp)
-    phone_number = await get_phone_number(ctx, user)
-    if not phone_number:
-        return
-
-    try:
-        twilio_client.messages.create(
-            to=phone_number,
-            from_=twilio_number,
-            body=message
-        )
-        await ctx.send(f"messaged {user}")
-    except Exception as e:
-        await ctx.send("failed messaging")
-        print(f"twilio error: {e}")
-
-@bot.command()
-async def updatephonenumber(ctx, user: discord.User, phone_number: str):
-    """update a user's phone number, usage: !updatephonenumber @user"""
-    if not phone_regex.match(phone_number):
-        await ctx.send("invalid phone number format")
-        return
-
-    uid = str(user.id)
-    if uid in user_phones:
-        user_phones[uid] = phone_number
-        save_data()
-        await ctx.send(f"updated {user}'s phone number to {phone_number}.")
-    else:
-        await ctx.send(f"{user} does not have a registered phone number.")
-
-@bot.command()
-async def deletephonenumber(ctx, user: discord.User):
-    """delete a user's phone number, usage: !deletephonenumber @user"""
-    uid = str(user.id)
-    if uid in user_phones:
-        del user_phones[uid]
-        save_data()
-        await ctx.send(f"deleted {user}'s phone number")
-    else:
-        await ctx.send(f"{user} does not have a registered phone number.")
-
-@bot.command()
-async def deleteallphonenumbers(ctx):
-    """delete all phone numbers"""
-    user_phones.clear()
-    save_data()
-    await ctx.send("deleted all phone numbers")
 
 
 bot.run(TOKEN)
