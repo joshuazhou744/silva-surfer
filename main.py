@@ -71,6 +71,7 @@ async def on_guild_join(guild: discord.Guild):
 @bot.command()
 async def surferrole(ctx):
     """send the reaction-role message"""
+    await ensure_role_exists(ctx.guild)
 
     embed = discord.Embed(
         title="🏄 silva surfers",
