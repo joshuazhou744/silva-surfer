@@ -187,6 +187,16 @@ async def on_raw_reaction_remove(payload):
         if member:
             await member.remove_roles(role)
 
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+    
+    if message.content.lower().strip() == "what":
+        monkey_path = "gifs/monkey.png"
+        file = discord.File(monkey_path, filename="monkey.png")
+        await message.channel.send(file=file)
+
 
 @bot.tree.command(name="surferrole", description="send the reaction-role message")
 async def surferrole(interaction: discord.Interaction):
