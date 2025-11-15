@@ -11,6 +11,8 @@ import random
 import asyncio
 from dotenv import load_dotenv
 
+import sqlite3
+
 load_dotenv()
 
 account_sid = os.getenv("TWILIO_ACCOUNT_SID")
@@ -27,25 +29,88 @@ intents.reactions = True
 intents.guilds = True
 intents.members = True
 
+bot = commands.Bot(command_prefix=[], intents=intents)
 
-bot = commands.Bot(command_prefix="!", intents=intents)
-
-reaction_message_id = None
 ROLE_NAME = "surfer"
-DATA_FILE = "phones.json"
 CHANNEL_NAME = "silver-surfer"
-user_phones = {}
 
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "r") as f:
-        user_phones = json.load(f)
-
-def save_data():
-    with open(DATA_FILE, "w") as f:
-        json.dump(user_phones, f)
-
-# regrex match for US/Canada phone numbers
+# regex match for US/Canada phone numbers
 phone_regex = re.compile(r"^\+1\d{10}$")
+
+# --- LOCAL FILE STORAGE --- #
+
+# PHONES_FILE = "phones.json"
+# REACTION_FILE = "reaction_messages.json"
+
+# if os.path.exists(PHONES_FILE):
+#     with open(PHONES_FILE, "r") as f:
+#         user_phones = json.load(f)
+
+# if os.path.exists(REACTION_FILE):
+#     with open(REACTION_FILE, "r") as f:
+#         reaction_messages = json.load(f)
+
+# def save_phone_data():
+#     with open(PHONES_FILE, "w") as f:
+#         json.dump(user_phones, f)
+
+# def save_reaction_messages():
+#     with open(REACTION_FILE, "w") as f:
+#         json.dump(reaction_messages, f)
+
+# --- SQLITE DATABASE --- #
+
+db = sqlite3.connect("data.db")
+db.row_factory = sqlite3.Row # so we can use rowss as dictionaries and not just tuples, e.g., row["phone"]
+cur = db.cursor()
+
+def init_db():
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS phones (
+        user_id TEXT PRIMARY KEY,
+        phone TEXT
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS reaction_messages (
+        guild_id TEXT PRIMARY KEY,
+        message_id TEXT
+    )
+    """)
+
+    db.commit()
+
+### PHONE NUMBERS
+
+def get_phone(user_id: str):
+    cur.execute("SELECT phone FROM phones WHERE user_id = ?", (user_id,))
+    row = cur.fetchone()
+    return row["phone"] if row else None
+
+def set_phone(user_id: str, phone: str):
+    cur.execute("REPLACE INTO phones (user_id, phone) VALUES (?, ?)", (user_id, phone))
+    db.commit()
+
+def delete_phone(user_id: str):
+    cur.execute("DELETE FROM phones WHERE user_id = ?", (user_id,))
+    db.commit()
+
+def delete_all_phones():
+    cur.execute("DELETE FROM phones")
+    db.commit()
+
+### REACTION MESSAGES
+
+def get_reaction_message(guild_id: str):
+    cur.execute("SELECT message_id FROM reaction_messages WHERE guild_id = ?", (guild_id,))
+    row = cur.fetchone()
+    return row["message_id"] if row else None
+
+def set_reaction_message(guild_id: str, message_id: str):
+    cur.execute("REPLACE INTO reaction_messages (guild_id, message_id) VALUES (?, ?)",
+                (guild_id, message_id))
+    db.commit()
 
 async def ensure_role_exists(guild: discord.Guild, role_name: str = ROLE_NAME):
     role = discord.utils.get(guild.roles, name=role_name)
@@ -83,10 +148,15 @@ async def on_guild_join(guild: discord.Guild):
 
 @bot.event
 async def on_raw_reaction_add(payload):
-    if payload.message_id != reaction_message_id or payload.user_id == bot.user.id:
+    guild = bot.get_guild(payload.guild_id)
+    if guild is None:
+        return
+    
+    # msg_id = reaction_messages.get(str(guild.id))
+    msg_id = get_reaction_message(str(guild.id))
+    if msg_id is None or payload.message_id != int(msg_id) or payload.user_id == bot.user.id:
         return
 
-    guild = bot.get_guild(payload.guild_id)
     role = discord.utils.get(guild.roles, name=ROLE_NAME)
     if role is None:
         print("role surfer not found")
@@ -99,10 +169,15 @@ async def on_raw_reaction_add(payload):
 
 @bot.event
 async def on_raw_reaction_remove(payload):
-    if payload.message_id != reaction_message_id:
+    guild = bot.get_guild(payload.guild_id)
+    if guild is None:
+        return
+    
+    # msg_id = reaction_messages.get(str(guild.id))
+    msg_id = get_reaction_message(str(guild.id))
+    if msg_id is None or payload.message_id != int(msg_id):
         return
 
-    guild = bot.get_guild(payload.guild_id)
     role = discord.utils.get(guild.roles, name=ROLE_NAME)
     if role is None:
         return
@@ -132,8 +207,10 @@ async def surferrole(interaction: discord.Interaction):
     msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction("🌊")
 
-    global reaction_message_id
-    reaction_message_id = msg.id
+    # reaction_messages[str(interaction.guild.id)] = msg.id
+    # save_reaction_messages()
+
+    set_reaction_message(str(interaction.guild.id), str(msg.id))
 
 @bot.tree.command(name="surf", description="ping all surfers")
 async def surf(interaction: discord.Interaction):
@@ -162,7 +239,8 @@ async def surf(interaction: discord.Interaction):
 async def get_phone_number(interaction: discord.Interaction, user: discord.User):
     """get phone number of a user"""
     uid = str(user.id)
-    phone_number = user_phones.get(uid)
+    # phone_number = user_phones.get(uid)
+    phone_number = get_phone(uid)
 
     if not phone_number:
         await interaction.channel.send(f"{user}'s phone number is not registered, check dms")
@@ -186,8 +264,9 @@ async def get_phone_number(interaction: discord.Interaction, user: discord.User)
             await user.send("⚠️ invalid format, registration cancelled")
             return None
 
-        user_phones[uid] = phone_number
-        save_data()
+        # user_phones[uid] = phone_number
+        # save_phone_data()
+        set_phone(uid, phone_number)
         await user.send(f"saved {user}'s number as {phone_number}.")
 
     return phone_number
@@ -243,12 +322,10 @@ async def updatephonenumber(interaction: discord.Interaction, user: discord.User
         return
 
     uid = str(user.id)
-    if uid in user_phones:
-        user_phones[uid] = phone_number
-        save_data()
-        await interaction.channel.send(f"updated {user}'s phone number to {phone_number}.")
-    else:
-        await interaction.channel.send(f"{user} does not have a registered phone number.")
+    # user_phones[uid] = phone_number
+    # save_phone_data()
+    set_phone(uid, phone_number)
+    await interaction.channel.send(f"updated {user}'s phone number to {phone_number}.")
 
 @bot.tree.command(name="deletephonenumber", description="delete a phone number")
 @app_commands.describe(user="user whose phone number to delete")
@@ -256,9 +333,11 @@ async def deletephonenumber(interaction: discord.Interaction, user: discord.User
     await interaction.response.send_message(f"deleting {user}'s number", ephemeral=True)
 
     uid = str(user.id)
-    if uid in user_phones:
-        del user_phones[uid]
-        save_data()
+    current_phone = get_phone(uid)
+    if current_phone is not None:
+        # del user_phones[uid]
+        # save_phone_data()
+        delete_phone(uid)
         await interaction.channel.send(f"deleted {user}'s phone number")
     else:
         await interaction.channel.send(f"{user} does not have a registered phone number.")
@@ -266,9 +345,10 @@ async def deletephonenumber(interaction: discord.Interaction, user: discord.User
 @bot.tree.command(name="deleteallphonenumbers", description="delete all phone numbers")
 async def deleteallphonenumbers(interaction: discord.Interaction):
     await interaction.response.send_message("deleting all phone numbers", ephemeral=True)
-    user_phones.clear()
-    save_data()
+    # user_phones.clear()
+    # save_phone_data()
+    delete_all_phones()
     await interaction.channel.send("deleted all phone numbers")
 
-
+init_db()
 bot.run(TOKEN)
