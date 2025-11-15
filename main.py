@@ -247,7 +247,7 @@ async def get_phone_number(interaction: discord.Interaction, user: discord.User)
         await user.send(f"register {user}'s phone number here pls, type the 10 digits, no `+1`, no spaces, no dashes, no parentheses. type `cancel` to cancel")
 
         def check(m):
-            return isinstance(m.channel, discord.DMChannel) and m.author.id == interaction.user.id
+            return isinstance(m.channel, discord.DMChannel) and m.author.id == user.id
 
         try:
             reply = await bot.wait_for("message", check=check, timeout=60)
