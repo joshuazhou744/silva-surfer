@@ -34,7 +34,7 @@ bot = commands.Bot(command_prefix=[], intents=intents)
 ROLE_NAME = "surfer"
 CHANNEL_ROLE_NAME = "gang"
 CHANNEL_NAME = "silver-surfer"
-ALLOWED_GUILD=1432159080067235944
+# ALLOWED_GUILD = dev_guild_id
 
 # regex match for US/Canada phone numbers
 phone_regex = re.compile(r"^\+1\d{10}$")
@@ -128,10 +128,13 @@ async def ensure_channel_exists(guild: discord.Guild, channel_name: str = CHANNE
     if role is None:
         print("no role found")
         return None
+    
+    bot_role = guild.me.top_role
 
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(view_channel=False),
-        role: discord.PermissionOverwrite(view_channel=True)
+        role: discord.PermissionOverwrite(view_channel=True),
+        bot_role: discord.PermissionOverwrite(view_channel=True)
     }
 
     channel = discord.utils.get(guild.text_channels, name=channel_name)
@@ -151,10 +154,10 @@ async def on_ready():
     print(f'logged in as {bot.user}')
 
     for guild in bot.guilds:
-        if guild.id != ALLOWED_GUILD:
-            print(f"Leaving unauthorized guild: {guild.name} ({guild.id})")
-            await guild.leave()
-            continue
+        # if guild.id != ALLOWED_GUILD:
+        #     print(f"Leaving unauthorized guild: {guild.name} ({guild.id})")
+        #     await guild.leave()
+        #     continue
 
         await ensure_role_exists(guild)
         await ensure_channel_exists(guild)
