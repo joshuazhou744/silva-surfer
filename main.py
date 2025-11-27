@@ -424,9 +424,7 @@ async def chatgpt(interaction: discord.Interaction, prompt: str):
         ],
     )
 
-    await interaction.followup.send(
-        f"asked chatgpt {prompt}"
-    )
+    await interaction.followup.send(prompt)
 
     await interaction.channel.send(response.choices[0].message.content)
 
