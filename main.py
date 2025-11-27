@@ -46,7 +46,7 @@ Do NOT prepend your response with "silver surfer: " or any other prefix.
 Remember YOU are silver surfer if you see yourself in context.
 """
 MODEL_ID = "gpt-5-nano"
-CONTEXT_LENGTH = 10
+CONTEXT_LENGTH = 20
 openai_client = OpenAI()
 
 # regex match for US/Canada phone numbers
