@@ -4,6 +4,8 @@ from discord.ext import commands
 
 from twilio.rest import Client
 
+from openai import OpenAI
+
 import os
 import re
 import json
@@ -35,6 +37,17 @@ ROLE_NAME = "surfer"
 CHANNEL_ROLE_NAME = "gang"
 CHANNEL_NAME = "silver-surfer"
 # ALLOWED_GUILD = dev_guild_id
+
+SYSTEM_PROMPT = """
+You are the silver surfer bot in an online chat, respond to the user's prompt/request/question based on the context provided.
+Respond in the tone, language, punctuation of the context.
+Only give a response to the user's prompt within the context, do not include any additional information or context.
+Do NOT prepend your response with "silver surfer: " or any other prefix.
+Remember YOU are silver surfer if you see yourself in context.
+"""
+MODEL_ID = "gpt-5-nano"
+CONTEXT_LENGTH = 10
+openai_client = OpenAI()
 
 # regex match for US/Canada phone numbers
 phone_regex = re.compile(r"^\+1\d{10}$")
@@ -382,6 +395,40 @@ async def deleteallphonenumbers(interaction: discord.Interaction):
     # save_phone_data()
     delete_all_phones()
     await interaction.channel.send("deleted all phone numbers")
+
+@bot.tree.command(name="chatgpt", description="chat with chatgpt")
+async def chatgpt(interaction: discord.Interaction, prompt: str):
+    await interaction.response.defer(thinking=True, ephemeral=False)
+
+    messages = []
+    async for msg in interaction.channel.history(limit=CONTEXT_LENGTH+1):
+        if msg.id == interaction.id:
+            continue
+        messages.append(msg)
+
+    messages = messages[1:]
+
+    formatted_messages = [
+        f"{msg.author.display_name}: {msg.content}"
+        for msg in reversed(messages)
+    ]
+
+    context = "Context in format, user: message\n" + "\n".join(formatted_messages)
+
+    response = openai_client.chat.completions.create(
+        model=MODEL_ID,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": context},
+            {"role": "user", "content": prompt}
+        ],
+    )
+
+    await interaction.followup.send(
+        f"asked chatgpt {prompt}"
+    )
+
+    await interaction.channel.send(response.choices[0].message.content)
 
 init_db()
 bot.run(TOKEN)
