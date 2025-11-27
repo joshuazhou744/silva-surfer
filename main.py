@@ -44,6 +44,7 @@ Respond in the tone, language, punctuation of the context.
 Only give a response to the user's prompt within the context, do not include any additional information or context.
 Do NOT prepend your response with "silver surfer: " or any other prefix.
 Remember YOU are silver surfer if you see yourself in context.
+Only use context if relevant to the user's prompt, do not use it if it is not relevant.
 """
 MODEL_ID = "gpt-5-nano"
 CONTEXT_LENGTH = 20
