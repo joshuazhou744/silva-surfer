@@ -397,6 +397,7 @@ async def deleteallphonenumbers(interaction: discord.Interaction):
     await interaction.channel.send("deleted all phone numbers")
 
 @bot.tree.command(name="chatgpt", description="chat with chatgpt")
+@app_commands.describe(prompt="prompt to send to chatgpt")
 async def chatgpt(interaction: discord.Interaction, prompt: str):
     await interaction.response.defer(thinking=True, ephemeral=False)
 
