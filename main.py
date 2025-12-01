@@ -6,6 +6,8 @@ from twilio.rest import Client
 
 from openai import OpenAI
 
+from valorant import *
+
 import os
 import re
 import json
@@ -429,6 +431,22 @@ async def chatgpt(interaction: discord.Interaction, prompt: str):
     await interaction.followup.send(prompt)
 
     await interaction.channel.send(response.choices[0].message.content)
+
+@bot.tree.command(name="get_valorant_player", description="get a valorant player's info")
+@app_commands.describe(username="first part of username#tag", tag="second part of username#tag")
+async def get_valorant_player(interaction: discord.Interaction, username: str, tag: str):
+    await interaction.response.defer(thinking=True, ephemeral=False)
+
+    try:
+        player = get_player(username, tag)
+    except Exception as e:
+        await interaction.response.send_message(f"player {username}#{tag} not found", ephemeral=True)
+        return
+    
+    found_message = f"found player {username}#{tag}"
+    await interaction.followup.send(found_message)  
+
+    await interaction.channel.send(f"Player info for {username}#{tag}: {player}")
 
 init_db()
 bot.run(TOKEN)
