@@ -398,9 +398,9 @@ async def message(interaction: discord.Interaction, user: discord.User, message:
         await interaction.channel.send("message failed")
         print(f"twilio error: {e}")
 
-@bot.tree.command(name="updatephonenumber", description="update a phone number")
+@bot.tree.command(name="update_phonenumber", description="update a phone number")
 @app_commands.describe(user="user whos phone number to update", phone_number="new phone number")
-async def updatephonenumber(interaction: discord.Interaction, user: discord.User, phone_number: str):
+async def update_phonenumber(interaction: discord.Interaction, user: discord.User, phone_number: str):
     await interaction.response.send_message(f"updating {user}'s number", ephemeral=True)
 
     if not phone_number.startswith("+1"):
@@ -416,9 +416,9 @@ async def updatephonenumber(interaction: discord.Interaction, user: discord.User
     set_phone(uid, phone_number)
     await interaction.channel.send(f"updated {user}'s phone number to {phone_number}.")
 
-@bot.tree.command(name="deletephonenumber", description="delete a phone number")
+@bot.tree.command(name="delete_phonenumber", description="delete a phone number")
 @app_commands.describe(user="user whose phone number to delete")
-async def deletephonenumber(interaction: discord.Interaction, user: discord.User):
+async def delete_phonenumber(interaction: discord.Interaction, user: discord.User):
     await interaction.response.send_message(f"deleting {user}'s number", ephemeral=True)
 
     uid = str(user.id)
@@ -431,8 +431,8 @@ async def deletephonenumber(interaction: discord.Interaction, user: discord.User
     else:
         await interaction.channel.send(f"{user} does not have a registered phone number.")
 
-@bot.tree.command(name="deleteallphonenumbers", description="delete all phone numbers")
-async def deleteallphonenumbers(interaction: discord.Interaction):
+@bot.tree.command(name="delete_all_phonenumbers", description="delete all phone numbers")
+async def delete_all_phonenumbers(interaction: discord.Interaction):
     await interaction.response.send_message("deleting all phone numbers", ephemeral=True)
     # user_phones.clear()
     # save_phone_data()
@@ -498,9 +498,9 @@ async def get_valorant_account(interaction: discord.Interaction, user: discord.U
     username, tag = data
     await interaction.response.send_message(f"{user.display_name}'s valorant tag is {username}#{tag}", ephemeral=False)
 
-@bot.tree.command(name="get_valorant_player", description="get a valorant player's info")
+@bot.tree.command(name="valorant_player", description="get a valorant player's info")
 @app_commands.describe(username="first part of username#tag", tag="second part of username#tag")
-async def get_valorant_player(interaction: discord.Interaction, username: str, tag: str):
+async def valorant_player(interaction: discord.Interaction, username: str, tag: str):
     await interaction.response.defer(thinking=True, ephemeral=False)
 
     try:
