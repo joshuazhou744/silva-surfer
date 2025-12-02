@@ -150,7 +150,7 @@ def set_val_account(user_id: str, username: str, tag: str):
     db.commit()
 
 def is_valid_valorant_id(username: str, tag: str) -> bool:
-    if " " in username or " " in tag:
+    if " " in tag:
         return False
 
     if len(username) < 1 or len(username) > 16:

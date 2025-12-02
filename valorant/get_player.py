@@ -2,9 +2,6 @@ from .models import Player
 from .config import BASE_URL, VALORANT_PLATFORM, VALORANT_RANK_ICON_URL, VALORANT_CARD_URL, VALORANT_TITLE_URL, SESSION
 import requests
 
-# USERNAME = "stickeylickey"
-# TAG = "stink"
-
 def get_player(username: str, tag: str) -> Player:
     account_url = f"{BASE_URL}/v2/account/{username}/{tag}"
     account_response = SESSION.get(account_url)
@@ -56,6 +53,9 @@ def get_player(username: str, tag: str) -> Player:
     # print(player)
     return player
 
+# Test function
+# USERNAME = "stickeylickey"
+# TAG = "stink"
 # try:
 #     get_player(USERNAME, TAG)
 # except Exception as e:
