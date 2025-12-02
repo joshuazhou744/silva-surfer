@@ -52,6 +52,9 @@ MODEL_ID = "gpt-5-nano"
 CONTEXT_LENGTH = 20
 openai_client = OpenAI()
 
+MAX_USERNAME_LEN = 16
+MAX_TAG_LEN = 5
+
 # regex match for US/Canada phone numbers
 phone_regex = re.compile(r"^\+1\d{10}$")
 
@@ -86,20 +89,28 @@ def init_db():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS phones (
         user_id TEXT PRIMARY KEY,
-        phone TEXT
+        phone TEXT NOT NULL
     )
     """)
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS reaction_messages (
         guild_id TEXT PRIMARY KEY,
-        message_id TEXT
+        message_id TEXT NOT NULL
     )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS valorant_accounts (
+        user_id TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        tag TEXT NOT NULL
+    )  
     """)
 
     db.commit()
 
-### PHONE NUMBERS
+### PHONE NUMBERS HELPERS
 
 def get_phone(user_id: str):
     cur.execute("SELECT phone FROM phones WHERE user_id = ?", (user_id,))
@@ -117,6 +128,35 @@ def delete_phone(user_id: str):
 def delete_all_phones():
     cur.execute("DELETE FROM phones")
     db.commit()
+
+### VALORANT USERNAME/TAG HELPERS
+
+def get_val_account(user_id: str):
+    cur.execute(
+        "SELECT username, tag FROM valorant_accounts WHERE user_id = ?",
+        (user_id,)
+    )
+    row = cur.fetchone()
+    return (row["username"], row["tag"]) if row else None
+
+def set_val_account(user_id: str, username: str, tag: str):
+    cur.execute("""
+        REPLACE INTO valorant_accounts (user_id, username, tag)
+        VALUES (?, ?, ?)
+    """, (user_id, username, tag))
+    db.commit()
+
+def is_valid_valorant_id(username: str, tag: str) -> bool:
+    if " " in username or " " in tag:
+        return False
+
+    if len(username) < 1 or len(username) > 16:
+        return False
+
+    if len(tag) < 1 or len(tag) > 5:
+        return False
+
+    return True
 
 ### REACTION MESSAGES
 
@@ -431,6 +471,32 @@ async def chatgpt(interaction: discord.Interaction, prompt: str):
     await interaction.followup.send(prompt)
 
     await interaction.channel.send(response.choices[0].message.content)
+
+@bot.tree.command(name="set_valorant_account", description="set a user's valorant account username and tag")
+@app_commands.describe(user="discord user to set account for", username="username in username#tag",tag="tag in username#tag")
+async def set_valorant_account(interaction:discord.Interaction, user: discord.User, username: str, tag: str):
+    if not is_valid_valorant_id(username, tag):
+        await interaction.response.send_message(
+            "invalid valorant username or tag\n"
+            "username must be 1–16 characters, no spaces\n"
+            "tag must be 1–5 characters, no spaces",
+            ephemeral=False
+        )
+        return
+
+    set_val_account(str(user.id), username, tag)
+    await interaction.response.send_message(f"set {user}'s valorant account to {username}#{tag}")
+
+@bot.tree.command(name="get_valorant_account", description="get a user's valorant account username and tag")
+@app_commands.describe(user="discord user to get account for")
+async def get_valorant_account(interaction: discord.Interaction, user: discord.User):
+    data = get_val_account(str(user.id))
+    if not data:
+        await interaction.response.send_message(f"{user.display_name} has no set valorant account", ephemeral=False)
+        return
+    
+    username, tag = data
+    await interaction.response.send_message(f"{user.display_name}'s valorant tag is {username}#{tag}", ephemeral=False)
 
 @bot.tree.command(name="get_valorant_player", description="get a valorant player's info")
 @app_commands.describe(username="first part of username#tag", tag="second part of username#tag")
