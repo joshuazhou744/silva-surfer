@@ -140,6 +140,9 @@ def get_val_account(user_id: str):
     return (row["username"], row["tag"]) if row else None
 
 def set_val_account(user_id: str, username: str, tag: str):
+    if not is_valid_valorant_id(username, tag):
+        raise ValueError("Invalid valorant username or tag")
+    
     cur.execute("""
         REPLACE INTO valorant_accounts (user_id, username, tag)
         VALUES (?, ?, ?)
@@ -277,8 +280,8 @@ async def on_message(message):
         await message.channel.send(file=file)
 
 
-@bot.tree.command(name="surferrole", description="send the reaction-role message")
-async def surferrole(interaction: discord.Interaction):
+@bot.tree.command(name="surfer_role", description="send the reaction-role message")
+async def surfer_role(interaction: discord.Interaction):
     if interaction.channel.name != CHANNEL_NAME:
         await interaction.response.send_message(f"please use this command in the `#{CHANNEL_NAME}` channel", ephemeral=True)
         return
@@ -359,6 +362,34 @@ async def get_phone_number(interaction: discord.Interaction, user: discord.User)
         await user.send(f"saved {user}'s number as {phone_number}.")
 
     return phone_number
+
+### BUILD VALORANT INFO EMBEDS
+
+def build_valorant_player_embed(player):
+    embed = discord.Embed(
+        title=f"{player.name}#{player.tag}",
+        color=discord.Color.purple()
+    )
+    player_title = player.player_title or "No Title"
+    embed.set_image(url=player.player_card)
+    embed.description = f"{player_title} • {player.region.upper()}"
+
+    # Rank icon
+    embed.set_thumbnail(url=player.current_rank_icon)
+
+    embed.add_field(
+        name="🏆 Current Rank",
+        value=f"{player.current_rank}\n{player.current_rr} RR",
+        inline=False
+    )
+
+    embed.add_field(
+        name="👑 Peak Rank",
+        value=f"{player.peak_rank}\nAct: {player.peak_rank_act}",
+        inline=False
+    )
+    return embed
+
 
 @bot.tree.command(name="call", description="call a surfer")
 @app_commands.describe(user="user to call", message="message to say in the call")
@@ -475,17 +506,17 @@ async def chatgpt(interaction: discord.Interaction, prompt: str):
 @bot.tree.command(name="set_valorant_account", description="set a user's valorant account username and tag")
 @app_commands.describe(user="discord user to set account for", username="username in username#tag",tag="tag in username#tag")
 async def set_valorant_account(interaction:discord.Interaction, user: discord.User, username: str, tag: str):
-    if not is_valid_valorant_id(username, tag):
+    try:
+        set_val_account(str(user.id), username, tag)
+    except ValueError:
         await interaction.response.send_message(
             "invalid valorant username or tag\n"
-            "username must be 1–16 characters, no spaces\n"
-            "tag must be 1–5 characters, no spaces",
-            ephemeral=False
+            "username must be 1–16 chars (no spaces)\n"
+            "tag must be 1–5 chars (no spaces)",
+            ephemeral=True
         )
         return
-
-    set_val_account(str(user.id), username, tag)
-    await interaction.response.send_message(f"set {user}'s valorant account to {username}#{tag}")
+    await interaction.response.send_message(f"set {user}'s valorant account to {username}#{tag}", ephemeral=True)
 
 @bot.tree.command(name="get_valorant_account", description="get a user's valorant account username and tag")
 @app_commands.describe(user="discord user to get account for")
@@ -499,20 +530,34 @@ async def get_valorant_account(interaction: discord.Interaction, user: discord.U
     await interaction.response.send_message(f"{user.display_name}'s valorant tag is {username}#{tag}", ephemeral=False)
 
 @bot.tree.command(name="valorant_player", description="get a valorant player's info")
-@app_commands.describe(username="first part of username#tag", tag="second part of username#tag")
-async def valorant_player(interaction: discord.Interaction, username: str, tag: str):
-    await interaction.response.defer(thinking=True, ephemeral=False)
+@app_commands.describe(user="discord user with a registered valorant account", username="first part of username#tag (use with tag)", tag="second part of username#tag (user with username)")
+async def valorant_player(interaction: discord.Interaction, user: discord.User | None, username: str | None, tag: str | None):
+    await interaction.response.defer(thinking=True, ephemeral=True)
+
+    if username and tag:
+        lookup_name = username
+        lookup_tag = tag
+    elif user:
+        data = get_val_account(str(user.id))
+        if not data:
+            await interaction.response.send_message(f"{user.display_name} has no set valorant account", ephemeral=True)
+            return
+        lookup_name, lookup_tag = data
+    else:
+        await interaction.followup.send("provide either a `user` or `username` + `tag`.", ephemeral=True)
+        return
 
     try:
-        player = get_player(username, tag)
+        player = get_player(lookup_name, lookup_tag)
     except Exception as e:
-        await interaction.response.send_message(f"player {username}#{tag} not found", ephemeral=True)
+        await interaction.followup.send(f"player {lookup_name}#{lookup_tag} not found", ephemeral=True)
         return
     
-    found_message = f"found player {username}#{tag}"
-    await interaction.followup.send(found_message)  
+    found_message = f"found player {lookup_name}#{lookup_tag}"
+    await interaction.followup.send(found_message, ephemeral=True)  
 
-    await interaction.channel.send(f"Player info for {username}#{tag}: {player}")
+    embed = build_valorant_player_embed(player)
+    await interaction.channel.send(embed=embed)
 
 init_db()
 bot.run(TOKEN)
