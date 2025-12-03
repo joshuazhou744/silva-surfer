@@ -1,24 +1,8 @@
 from pydantic import BaseModel
-from typing import Literal
+from typing import Literal, Optional, List
 from datetime import datetime
 
-TeamMode = Literal[
-    "competitive",
-    "custom", # do sum but this one
-    "deathmatch",
-    "escalation",
-    "teamdeathmatch",
-    "newmap",
-    "spikerush",
-    "swiftplay",
-    "replication",
-    "snowballfight",
-    "unrated",
-]
-
-FFAMode = Literal[
-    "deathmatch",
-]
+# Player models
 
 class Player(BaseModel):
     player_id: str
@@ -34,31 +18,44 @@ class Player(BaseModel):
     peak_rank: str
     peak_rank_act: str
 
+class BaseMatchPlayer(BaseModel):
+    name: str
+    tag: str
+    kills: int
+    deaths: int
+
+class StandardMatchPlayer(BaseMatchPlayer):
+    team: Literal["Red", "Blue"]
+    acs: int
+    assists: int
+    agent: str
+
+class CompMatchPlayer(StandardMatchPlayer):
+    rank: str
+    rank_icon: str
+
+class FFAMatchPlayer(BaseMatchPlayer):
+    score: int
+
+MatchPlayer = StandardMatchPlayer | FFAMatchPlayer
+
+# Match models
 
 class BaseMatch(BaseModel):
     match_id: str
     game_mode: str
     map_name: str
     start_time: datetime
-    players: list[Player]
+    players: List[MatchPlayer]
 
-class TeamMatch(BaseMatch):
-    game_mode: TeamMode
+class StandardMatch(BaseMatch):
+    game_mode: str
     red_score: int
     blue_score: int
     winner: Literal["Red", "Blue"]
 
 class FFAMatch(BaseMatch):
-    game_mode: FFAMode
-    winner: Player
-    top_score: int
+    game_mode: str
+    winner: FFAMatchPlayer
 
-class CompMatchPlayer(BaseModel):
-    name: str
-    tag: str
-    team: Literal["Red", "Blue"]
-    rank: str
-    acs: int
-    kills: int
-    deaths: int
-    assists: int
+Match = StandardMatch | FFAMatch

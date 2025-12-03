@@ -1,25 +1,14 @@
 from .models import Player
-from .config import BASE_URL, VALORANT_PLATFORM, VALORANT_RANK_ICON_URL, VALORANT_CARD_URL, VALORANT_TITLE_URL, SESSION
+from .config import BASE_URL, VALORANT_PLATFORM, VALORANT_RANK_ICON_URL, VALORANT_CARD_URL, VALORANT_TITLE_URL, SESSION, get_account_data
 import requests
 
 def get_player(username: str, tag: str) -> Player:
-    account_url = f"{BASE_URL}/v2/account/{username}/{tag}"
-    account_response = SESSION.get(account_url)
-
-    if account_response.status_code == 404:
-        raise ValueError(f"Account '{username}#{tag}' not found")
-    
-    if account_response.status_code != 200:
-        raise RuntimeError(
-            f"Account API request failed: {account_response.status_code} {account_response.text}"
-        )
-    
-    account_data = account_response.json()["data"]
-    # get region so we can get mmr
+    account_data = get_account_data(username, tag)
     region = account_data["region"]
     
     mmr_url = f"{BASE_URL}/v3/mmr/{region}/{VALORANT_PLATFORM}/{username}/{tag}"
     mmr_response = SESSION.get(mmr_url)
+    mmr_response.raise_for_status()
 
     if mmr_response.status_code != 200:
         raise RuntimeError(

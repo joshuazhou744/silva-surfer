@@ -23,3 +23,18 @@ HEADERS = {
 
 SESSION = requests.Session()
 SESSION.headers.update(HEADERS)
+
+def get_account_data(username: str, tag: str) -> str:
+    account_url = f"{BASE_URL}/v2/account/{username}/{tag}"
+    account_response = SESSION.get(account_url)
+
+    if account_response.status_code == 404:
+        raise ValueError(f"Account '{username}#{tag}' not found")
+
+    if account_response.status_code != 200:
+        raise RuntimeError(
+            f"Account API request failed: {account_response.status_code} {account_response.text}"
+        )
+    
+    account_data = account_response.json()["data"]
+    return account_data
