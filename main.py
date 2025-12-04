@@ -16,8 +16,6 @@ from build_embeds import (
     build_valorant_player_embed,
 )
 
-from match_history_image import render_match_history_images, image_to_bytes
-
 import os
 import re
 import json
