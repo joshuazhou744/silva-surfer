@@ -6,7 +6,17 @@ from twilio.rest import Client
 
 from openai import OpenAI
 
-from valorant.get_player import get_player
+from valorant import (
+    get_player,
+    get_match_history,
+    GameModeEnum
+)
+
+from build_embeds import (
+    build_valorant_player_embed,
+)
+
+from match_history_image import render_match_history_images, image_to_bytes
 
 import os
 import re
@@ -363,33 +373,6 @@ async def get_phone_number(interaction: discord.Interaction, user: discord.User)
 
     return phone_number
 
-### BUILD VALORANT INFO EMBEDS
-
-def build_valorant_player_embed(player):
-    embed = discord.Embed(
-        title=f"{player.name}#{player.tag}",
-        color=discord.Color.purple()
-    )
-    player_title = player.player_title or "No Title"
-    embed.set_image(url=player.player_card)
-    embed.description = f"{player_title} • {player.region.upper()}"
-
-    # Rank icon
-    embed.set_thumbnail(url=player.current_rank_icon)
-
-    embed.add_field(
-        name="🏆 Current Rank",
-        value=f"{player.current_rank}\n{player.current_rr} RR",
-        inline=False
-    )
-
-    embed.add_field(
-        name="👑 Peak Rank",
-        value=f"{player.peak_rank}\nAct: {player.peak_rank_act}",
-        inline=False
-    )
-    return embed
-
 
 @bot.tree.command(name="call", description="call a surfer")
 @app_commands.describe(user="user to call", message="message to say in the call")
@@ -558,6 +541,39 @@ async def valorant_player(interaction: discord.Interaction, user: discord.User |
 
     embed = build_valorant_player_embed(player)
     await interaction.channel.send(embed=embed)
+
+@bot.tree.command(name="valorant_match_history", description="get a valorant player's match history")
+@app_commands.describe(user="discord user with a registered valorant account", username="first part of username#tag (use with tag)", tag="second part of username#tag (user with username)", size="number of matches to get (optional, default is 1)", mode="game mode to filter by (optional, default is all gamemodes)")
+async def valorant_match_history(interaction: discord.Interaction, user: discord.User | None, username: str | None, tag: str | None, size: int = 1, mode: GameModeEnum | None = None):
+    await interaction.response.defer(thinking=True, ephemeral=False)
+    await interaction.followup.send(f"currently broken", ephemeral=False)
+
+    # if username and tag:
+    #     lookup_name = username
+    #     lookup_tag = tag
+    # elif user:
+    #     data = get_val_account(str(user.id))
+    #     if not data:
+    #         await interaction.response.send_message(f"{user.display_name} has no set valorant account", ephemeral=True)
+    #         return
+    #     lookup_name, lookup_tag = data
+    # else:
+    #     await interaction.followup.send("provide either a `user` or `username` + `tag`.", ephemeral=True)
+    #     return
+    
+    # try:
+    #     mode_value = mode.value if mode else None
+    #     match_views = get_match_history(lookup_name, lookup_tag, size=size, mode=mode_value)
+    # except Exception as e:
+    #     await interaction.followup.send(f"player {lookup_name}#{lookup_tag} not found", ephemeral=True)
+    #     return
+    
+    # success_message = f"displaying games for {lookup_name}#{lookup_tag}"
+    # await interaction.followup.send(success_message, ephemeral=True)
+
+    # display it somehow
+
+    
 
 init_db()
 bot.run(TOKEN)

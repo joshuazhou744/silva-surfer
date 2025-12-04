@@ -220,7 +220,7 @@ def build_player_view(match: Match, target_puuid: str, mmr_data_map: dict[str, d
                 return PlayerMatchView(match=match, target_player=target_player)
 
 
-def get_match_history(username: str, tag: str, size: int = 5, mode: str | None = None) -> List[PlayerMatchView]:
+def get_match_history(username: str, tag: str, size: int = 1, mode: str | None = None) -> List[PlayerMatchView]:
     size = min(size, MAX_MATCHES)
 
     # get region and player id with the helper function

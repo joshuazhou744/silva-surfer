@@ -1,6 +1,40 @@
 from pydantic import BaseModel
 from typing import List, Union, Optional, Literal
 from datetime import datetime
+from enum import Enum
+
+# Enums
+
+class GameModeEnum(str, Enum):
+    competitive = "competitive"
+    custom = "custom"
+    deathmatch = "deathmatch"
+    escalation = "escalation"
+    teamdeathmatch = "teamdeathmatch"
+    newmap = "newmap"
+    replication = "replication"
+    snowballfight = "snowballfight"
+    spikerush = "spikerush"
+    swiftplay = "swiftplay"
+    unrated = "unrated"
+
+# Literals
+
+RankChange = Optional[Literal["rank_up", "rank_down"]]
+
+GameModeLiteral = Literal[
+    "competitive",
+    "custom",
+    "deathmatch",
+    "escalation",
+    "teamdeathmatch",
+    "newmap",
+    "replication",
+    "snowballfight",
+    "spikerush",
+    "swiftplay",
+    "unrated",
+]
 
 # Player/account model
 
@@ -74,8 +108,6 @@ class FFAMatch(BaseMatch):
 Match = Union[StandardMatch, FFAMatch]
 
 # Target player model
-
-RankChange = Optional[Literal["rank_up", "rank_down"]]
 
 class TargetPlayer(BaseModel):
     player: MatchPlayer
