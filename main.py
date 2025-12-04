@@ -521,7 +521,7 @@ async def valorant_player(interaction: discord.Interaction, user: discord.User |
     elif user:
         data = get_val_account(str(user.id))
         if not data:
-            await interaction.response.send_message(f"{user.display_name} has no set valorant account", ephemeral=True)
+            await interaction.followup.send(f"{user.display_name} has no set valorant account", ephemeral=True)
             return
         lookup_name, lookup_tag = data
     else:
@@ -552,7 +552,7 @@ async def valorant_match_history(interaction: discord.Interaction, user: discord
     # elif user:
     #     data = get_val_account(str(user.id))
     #     if not data:
-    #         await interaction.response.send_message(f"{user.display_name} has no set valorant account", ephemeral=True)
+    #         await interaction.followup.send(f"{user.display_name} has no set valorant account", ephemeral=True)
     #         return
     #     lookup_name, lookup_tag = data
     # else:
