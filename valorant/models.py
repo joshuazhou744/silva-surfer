@@ -1,8 +1,8 @@
 from pydantic import BaseModel
-from typing import Literal, Optional, List
+from typing import List, Union, Optional, Literal
 from datetime import datetime
 
-# Player models
+# Player/account model
 
 class Player(BaseModel):
     player_id: str
@@ -18,17 +18,23 @@ class Player(BaseModel):
     peak_rank: str
     peak_rank_act: str
 
+# Match player models
+
 class BaseMatchPlayer(BaseModel):
+    player_id: str
     name: str
     tag: str
     kills: int
     deaths: int
+    agent: str
+    agent_id: str
+    agent_icon: str
+    agent_full: Optional[str] = None
 
 class StandardMatchPlayer(BaseMatchPlayer):
-    team: Literal["Red", "Blue"]
+    team: str
     acs: int
     assists: int
-    agent: str
 
 class CompMatchPlayer(StandardMatchPlayer):
     rank: str
@@ -37,7 +43,14 @@ class CompMatchPlayer(StandardMatchPlayer):
 class FFAMatchPlayer(BaseMatchPlayer):
     score: int
 
-MatchPlayer = StandardMatchPlayer | FFAMatchPlayer
+MatchPlayer = Union[StandardMatchPlayer, FFAMatchPlayer, CompMatchPlayer]
+
+# Team models
+
+class StandardTeam(BaseModel):
+    team_id: str
+    score: int
+    players: List[MatchPlayer]
 
 # Match models
 
@@ -45,17 +58,34 @@ class BaseMatch(BaseModel):
     match_id: str
     game_mode: str
     map_name: str
+    map_banner: str
     start_time: datetime
-    players: List[MatchPlayer]
 
 class StandardMatch(BaseMatch):
-    game_mode: str
     red_score: int
     blue_score: int
-    winner: Literal["Red", "Blue"]
+    teams: List[StandardTeam]
+    winner: StandardTeam | None
 
 class FFAMatch(BaseMatch):
-    game_mode: str
-    winner: FFAMatchPlayer
+    players: List[FFAMatchPlayer]
+    winner: FFAMatchPlayer | None
 
-Match = StandardMatch | FFAMatch
+Match = Union[StandardMatch, FFAMatch]
+
+# Target player model
+
+RankChange = Optional[Literal["rank_up", "rank_down"]]
+
+class TargetPlayer(BaseModel):
+    player: MatchPlayer
+    won: bool
+    agent_full: str
+    rr_change: Optional[int] = None
+    rank_change: RankChange
+
+# Player Match view
+
+class PlayerMatchView(BaseModel):
+    match: Match
+    target_player: TargetPlayer

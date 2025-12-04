@@ -6,7 +6,7 @@ from twilio.rest import Client
 
 from openai import OpenAI
 
-from valorant import *
+from valorant.get_player import get_player
 
 import os
 import re
